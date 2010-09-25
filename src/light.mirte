@@ -1,0 +1,20 @@
+includes:
+ - sarah/socketServer
+ - joyce
+definitions:
+  lightJoyceServer:
+    implementedBy: joyce.light.LightJoyceServer
+    inherits: [ tcpSocketServer ]
+    settings:
+      threadPool: {type: threadPool}
+      port: {default: 8080}
+      timeout: {type: float, default: 2}
+  lightJoyceClient:
+    implementedBy: joyce.light.LightJoyceClient
+    run: true
+    settings:
+      threadPool: {type: threadPool}
+      host: {type: str}
+      path: {type: str, default: "/"}
+      port: {type: int, default: 8080}
+      protocol: {type: str, default: json1}
