@@ -4,6 +4,7 @@ from sarah.event import Event
 
 import os
 import base64
+import logging
 import threading
 
 class JoyceError(Exception):
@@ -14,8 +15,9 @@ class UnsupportedProtocol(JoyceError):
 	pass
 
 class JoyceChannel(object):
-	def __init__(self, relay, token):
+	def __init__(self, relay, token, logger):
 		self.relay = relay
+		self.l = logger
 		self.token = token
 		self.on_message = Event()
 	def send_message(self, d):
@@ -24,15 +26,17 @@ class JoyceChannel(object):
 		self.on_message(self, d)
 
 class JoyceRelay(object):
-	def __init__(self, hub):
+	def __init__(self, hub, logger):
+		self.l = logger
 		self.hub = hub
 	def send_message(self, token, d):
 		raise NotImplementedError
 	def handle_message(self, token, d):
 		self.hub.handle_message(token, d, self)
 
-class JoyceHub(object):
-	def __init__(self, channel_class=None):
+class JoyceHub(Module):
+	def __init__(self, channel_class=None, *args, **kwargs):
+		super(JoyceHub, self).__init__(*args, **kwargs)
 		self.channel_class = (JoyceChannel
 				if channel_class is None else channel_class)
 		self.lock = threading.Lock()
@@ -63,7 +67,8 @@ class JoyceHub(object):
 			token = self._generate_token()
 		if channel_class is None:
 			channel_class = self.channel_class
-		channel = channel_class(relay, token)
+		channel = channel_class(relay, token,
+			logging.getLogger("%s.%s" % (self.l.name, token)))
 		self.channel_to_relay[token] = relay
 		self.channels[token] = channel
 		return channel
@@ -74,13 +79,11 @@ class JoyceHub(object):
 				self.channels[_try] = None
 				return _try
 
-class JoyceClient(Module, JoyceHub):
+class JoyceClient(JoyceHub):
 	def __init__(self, *args, **kwargs):
-		Module.__init__(self, *args, **kwargs)
-		JoyceHub.__init__(self)
+		super(JoyceClient, self).__init__(None, *args, **kwargs)
 	def create_channel(self, token=None, channel_class=None):
 		raise NotImplementedError
-class JoyceServer(Module, JoyceHub):
+class JoyceServer(JoyceHub):
 	def __init__(self, *args, **kwargs):
-		Module.__init__(self, *args, **kwargs)
-		JoyceHub.__init__(self)
+		super(JoyceServer, self).__init__(None, *args, **kwargs)

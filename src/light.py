@@ -12,18 +12,18 @@ import json
 import zlib
 import struct
 import socket
+import logging
 import threading
 import cStringIO as StringIO
 
 class LightJoyceRelay(JoyceRelay):
-	def __init__(self, hub, f, l, protocol):
-		super(LightJoyceRelay, self).__init__(hub)
+	def __init__(self, hub, logger, f, protocol):
+		super(LightJoyceRelay, self).__init__(hub, logger)
 		self.running = True
 		self.queue = []
 		self.cond = threading.Condition()
 		self.f = f
 		self.protocol = protocol
-		self.l = l
 		self.prot_map = {
 			'json1': (self.read_json1, self.write_json1),
 			'json1gz': (self.read_json1gz, self.write_json1gz),
@@ -150,7 +150,8 @@ class LightJoyceClient(JoyceClient):
 			raise UnsupportedProtocol
 		f.write(json.dumps(self.protocol))
 		f.write("\n")
-		self.relay = LightJoyceRelay(self, f, self.l, self.protocol)
+		l = logging.getLogger("%s.relay" % self.l.name)
+		self.relay = LightJoyceRelay(self, l, f, self.protocol)
 		self.connected.set()
 	def stop(self):
 		self.running = False
@@ -166,7 +167,7 @@ class LightJoyceServer(TCPSocketServer, JoyceServer):
 			self.l = logger
 		def handle(self):
 			f = IntSocketFile(self.conn)
-			self.relay = LightJoyceRelay(self.hub, f, self.l, None)
+			self.relay = LightJoyceRelay(self.hub, self.l, f, None)
 			f.write(json.dumps(self.relay.prot_map.keys()))
 			f.write("\n")
 			protocol = self.protocol = json.loads(
