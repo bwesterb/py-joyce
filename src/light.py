@@ -37,10 +37,10 @@ class LightJoyceRelay(JoyceRelay):
 	def cleanup(self):
 		self.f.close()
 	def interrupt(self):
-		self.f.interrupt()
-		self.running = False
 		with self.cond:
+			self.running = False
 			self.cond.notifyAll()
+		self.f.interrupt()
 	def _run_sender(self):
 		self.cond.acquire()
 		while self.running:
@@ -51,11 +51,24 @@ class LightJoyceRelay(JoyceRelay):
 			queue = list(self.queue)
 			self.queue = []
 			self.cond.release()
-			self.prot_map[self.protocol][1](queue)
-			self.cond.acquire()
+			try:
+				self.prot_map[self.protocol][1](queue)
+			except Exception as e:
+				self.l.exception("Uncaught exception")
+				break
+			finally:
+				self.cond.acquire()
+		running = self.running
 		self.cond.release()
+		if running:
+			self.interrupt()
 	def _run_receiver(self):
-		self.prot_map[self.protocol][0]()
+		try:
+			self.prot_map[self.protocol][0]()
+		except Exception as e:
+			self.l.exception("Uncaught exception")
+		if self.running:
+			self.interrupt()
 	def _read_json1(self, raw_d):
 		self._read_son1(json.loads(raw_d))
 	def _read_son1(self, d):
