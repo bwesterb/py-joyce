@@ -24,6 +24,8 @@ class JoyceChannel(object):
 		self.relay.send_message(self.token, d)
 	def handle_message(self, d):
 		self.on_message(self, d)
+	def close(self):
+		self.relay.close_channel(self.token)
 
 class JoyceRelay(object):
 	def __init__(self, hub, logger):
@@ -33,6 +35,8 @@ class JoyceRelay(object):
 		raise NotImplementedError
 	def handle_message(self, token, d):
 		self.hub.handle_message(token, d, self)
+	def close_channel(self, token):
+		self.hub.remove_channel(token)
 
 class JoyceHub(Module):
 	def __init__(self, channel_class=None, *args, **kwargs):
