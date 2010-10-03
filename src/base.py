@@ -78,6 +78,10 @@ class JoyceHub(Module):
 			if not _try in self.channels:
 				self.channels[_try] = None
 				return _try
+	def remove_channel(self, token):
+		with self.lock:
+			del self.channels[token]
+			del self.channel_to_relay[token]
 
 class JoyceClient(JoyceHub):
 	def __init__(self, *args, **kwargs):
