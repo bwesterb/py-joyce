@@ -182,7 +182,8 @@ class CometJoyceClientRelay(JoyceRelay):
 	def run(self):
 		assert not self.running
 		self.running = True
-		self._do_request()
+		if self.token is None:
+			self._do_request()
 		self.hub.threadPool.execute_named(self.run_dispatcher,
 				'%s.run_dispatcher' % self.l.name)
 		self.hub.threadPool.execute_named(self.run_requester,
