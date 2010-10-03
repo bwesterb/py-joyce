@@ -251,13 +251,13 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 	def dispatch_message(self, d, rh):
 		direct_return = False
 		if d is None:
-			direct_return = True
 			d = [] 
 		if not isinstance(d, list):
 			rh._respond_simple(400, 'Message isn\'t list')
 			return
 		if len(d) == 0:
 			d = [None]
+			direct_return = True
 		with self.lock:
 			if d[0] is None:
 				d[0] = self._generate_token()
