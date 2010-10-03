@@ -24,6 +24,7 @@ class LightJoyceRelay(JoyceRelay):
 		self.cond = threading.Condition()
 		self.f = f
 		self.protocol = protocol
+		self.cleaned = False
 		self.prot_map = {
 			'json1': (self.read_json1, self.write_json1),
 			'json1gz': (self.read_json1gz, self.write_json1gz),
@@ -35,12 +36,18 @@ class LightJoyceRelay(JoyceRelay):
 			self.cond.notify()
 	
 	def cleanup(self):
+		with self.cond:
+			if self.cleaned:
+				return
+			self.cleaned = True
 		self.f.close()
+		self.hub.remove_relay(self)
 	def interrupt(self):
 		with self.cond:
 			self.running = False
 			self.cond.notifyAll()
 		self.f.interrupt()
+		self.cleanup()
 	def _run_sender(self):
 		self.cond.acquire()
 		while self.running:
