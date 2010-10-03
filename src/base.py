@@ -45,6 +45,7 @@ class JoyceHub(Module):
 				if channel_class is None else channel_class)
 		self.lock = threading.Lock()
 		self.channel_to_relay = dict()
+		self.relay_to_channels = dict()
 		self.channels = dict()
 		self.on_new_channel = Event()
 	def handle_message(self, token, d, relay):
@@ -74,6 +75,9 @@ class JoyceHub(Module):
 		channel = channel_class(relay, token,
 			logging.getLogger("%s.%s" % (self.l.name, token)))
 		self.channel_to_relay[token] = relay
+		if not relay in self.relay_to_channels:
+			self.relay_to_channels[relay] = set()
+		self.relay_to_channels[relay].add(token)
 		self.channels[token] = channel
 		return channel
 	def _generate_token(self):
@@ -85,7 +89,17 @@ class JoyceHub(Module):
 	def remove_channel(self, token):
 		with self.lock:
 			del self.channels[token]
+			relay = self.channel_to_relay[token]
+			self.relay_to_channels[relay].remove(token)
 			del self.channel_to_relay[token]
+	def remove_relay(self, relay):
+		with self.lock:
+			cs = self.relay_to_channels[relay]
+			for t in cs:
+				del self.channels[t]
+				assert self.channel_to_relay[t] is relay
+				del self.channel_to_relay[t]
+			del self.relay_to_channels[relay]
 
 class JoyceClient(JoyceHub):
 	def __init__(self, *args, **kwargs):
