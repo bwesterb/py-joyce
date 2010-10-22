@@ -117,16 +117,19 @@ class CometJoyceServerRelay(JoyceRelay):
 		with self.lock:
 			if not self.rh is None:
 				self.__flush()
-	def __flush(self):
+	def __flush(self, async=True):
 		""" Flushes messages through current HttpRequest and closes it.
 		    It assumes a current requesthandler and requires a lock
 		    on self.lock """
 		rh = self.rh
 		messages = list(self.messages)
 		self.messages = []
-		self.hub.threadPool.execute_named(self.__inner_flush,
-				'%s __iner__flush' % self.hub.l.name, rh,
-				messages)
+		args = (rh, messages)
+		if async:
+			self.hub.threadPool.execute_named(self.__inner_flush,
+				'%s __iner__flush' % self.hub.l.name, *args)
+		else:
+			self.__inner_flush(*args)
 		self.rh = None
 		self._set_timeout(int(time.time() + self.hub.timeout))
 	def __inner_flush(self, rh, messages):
@@ -137,7 +140,8 @@ class CometJoyceServerRelay(JoyceRelay):
 			rh.real_finish()
 		except socket.error:
 			self.l.exception("Exception while flushing")
-
+	def abort(self):
+		self.__flush(async=False)
 
 class CometJoyceClientRelay(JoyceRelay):
 	def __init__(self, hub, logger, token=None):
@@ -283,12 +287,16 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 		super(CometJoyceServer, self).run()
 		while True:
 			with self.lock:
+				if not self.running:
+					break
 				ds = self.timeout_lut.items()
 			tmp = sorted([x[0] for x in ds if x[1]])
 			timeout = tmp[0] - time.time() if tmp else self.timeout
 			if timeout > 0:
 				time.sleep(timeout)
 			with self.lock:
+				if not self.running:
+					break
 				ds = self.timeout_lut.items()
 			ds.sort(cmp=lambda x,y: cmp(x[0], y[0]))
 			now = time.time()
@@ -298,7 +306,10 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 				del self.timeout_lut[t]
 				for s in ss:
 					s.on_timeout(t)
-			if not self.running:
-				break
 	def stop(self):
-		pass
+		super(CometJoyceServer, self).stop()
+		with self.lock:
+			ds = self.timeout_lut.values()
+		for ss in ds:
+			for s in tuple(ss):
+				s.abort()
