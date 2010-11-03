@@ -142,7 +142,9 @@ class CometJoyceServerRelay(JoyceRelay):
 		except socket.error:
 			self.l.exception("Exception while flushing")
 	def abort(self):
-		self.__flush(async=False)
+		with self.lock:
+			if not self.rh is None:
+				self.__flush(async=False)
 
 class CometJoyceClientRelay(JoyceRelay):
 	def __init__(self, hub, logger, token=None):
