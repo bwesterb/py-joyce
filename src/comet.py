@@ -1,3 +1,4 @@
+import cgi
 import time
 import json
 import socket
@@ -6,11 +7,18 @@ import httplib
 import logging
 import urlparse
 import threading
+import poster.encode
+import poster.streaminghttp
+
+# TODO avoid this call
+poster.streaminghttp.register_openers()
+
 from BaseHTTPServer import BaseHTTPRequestHandler
 
 from mirte.core import Module
 from sarah.event import Event
 from sarah.io import IntSocketFile
+from sarah.runtime import CallCatchingWrapper
 from sarah.socketServer import TCPSocketServer
 
 from joyce.base import JoyceServer, JoyceClient, JoyceRelay
@@ -46,11 +54,27 @@ class CometRH(BaseHTTPRequestHandler):
 		v = urllib2.unquote(urlparse.urlparse(self.path).query)
 		self._dispatch_message(v)
 	def do_POST(self):
+		if ('Content-Type' in self.headers and cgi.parse_header(
+				self.headers.getheader('Content-Type'))[0] ==
+					'multipart/form-data'):
+			self._dispatch_stream()
+			return
 		if not 'Content-Length' in self.headers:
 			self._respond_simple(400, "No Content-Length")
-		self._dispatch_request(self.rfile.read(
+		self._dispatch_message(self.rfile.read(
 			int(self.headers['Content-Length'])))
-	def _dispatch_request(self, v):
+	def _dispatch_stream(self):
+		fs = cgi.FieldStorage(self.rfile, self.headers,
+			environ={'REQUEST_METHOD': 'POST',
+				 'CONTENT_TYPE': self.headers['Content-Type']})
+		token = urllib2.unquote(urlparse.urlparse(self.path).query)
+		def _on_stream_closed(name, func, args, kwargs):
+			func(*args, **kwargs)
+			self._respond_simple(200,'')
+		stream = CallCatchingWrapper(fs['stream'].file,
+				lambda x: x == 'close', _on_stream_closed)
+		self.server.dispatch_stream(token, stream, self)
+	def _dispatch_message(self, v):
 		if v == '':
 			d = None
 		else:
@@ -92,6 +116,11 @@ class CometJoyceServerRelay(JoyceRelay):
 				self.hub.remove_timeout(self.timeout, self)
 			self.hub.add_timeout(timeout, self)
 			self.timeout = timeout
+	def _handle_stream(self, rh, stream):
+		with self.lock:
+			self._set_timeout(int(time.time() +
+						self.hub.timeout))
+		self.handle_stream(stream)
 	def _handle_message(self, rh, data, direct_return):
 		with self.lock:
 			if not self.rh is None:
@@ -155,6 +184,18 @@ class CometJoyceClientRelay(JoyceRelay):
 		self.queue_in = []
 		self.queue_out = []
 		self.nPending = 0
+	def send_stream(self, token, stream, blocking=True):
+		if token != self.token:
+			raise ValueError, "%s != %s" (token, self.token)
+		datagen, headers = poster.encode.multipart_encode({
+					'stream': stream})
+		request = urllib2.Request("http://%s:%s%s?%s" % (
+				self.host, self.port, self.path, token),
+				datagen, headers)
+		resp = urllib2.urlopen(request)
+		if blocking:
+			json.loads(resp.read())
+
 	def send_message(self, token, d):
 		if token != self.token:
 			raise ValueError, "%s != %s" % (token, self.token)
@@ -264,6 +305,9 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 				self.l.name, token))
 			relay = CometJoyceServerRelay(self, l, token)
 		return relay
+	def dispatch_stream(self, token, stream, rh):
+		relay = self._get_relay_for_token(token)
+		relay._handle_stream(rh, stream)
 	def dispatch_message(self, d, rh):
 		direct_return = False
 		if d is None:
