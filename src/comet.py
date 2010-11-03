@@ -1,7 +1,7 @@
 import time
 import json
-import urllib
 import socket
+import urllib2
 import httplib
 import logging
 import urlparse
@@ -43,8 +43,8 @@ class CometRH(BaseHTTPRequestHandler):
 	def log_request(self, code=None, size=None):
 		self.l.info("Request: %s %s" % (code, size))
 	def do_GET(self):
-		v = urllib.unquote(urlparse.urlparse(self.path).query)
-		self._dispatch_request(v)
+		v = urllib2.unquote(urlparse.urlparse(self.path).query)
+		self._dispatch_message(v)
 	def do_POST(self):
 		if not 'Content-Length' in self.headers:
 			self._respond_simple(400, "No Content-Length")
