@@ -76,7 +76,6 @@ class CometJoyceServerRelay(JoyceRelay):
 		super(CometJoyceServerRelay, self).__init__(hub, logger)
 		self.lock = threading.Lock()
 		self.rh = None
-		self.token = token
 		self.timeout = None
 		self.messages = []
 		self.token = token
