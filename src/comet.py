@@ -129,7 +129,7 @@ class CometJoyceServerRelay(JoyceRelay):
 				self._set_timeout(int(time.time() +
 						self.hub.timeout))
 			self.rh = rh
-			if direct_return:
+			if direct_return or self.messages:
 				self.__flush()
 		if len(data) > 1:
 			for d in data[1:]:
@@ -277,8 +277,7 @@ class CometJoyceClient(JoyceClient):
 				self.l.name, token))
 			relay = CometJoyceClientRelay(self, l, token)
 			c = self._create_channel(token, relay, channel_class)
-		self.threadPool.execute_named(relay.run,
-				'%s.run' % l.name)
+		self.threadPool.execute_named(relay.run, '%s.run' % l.name)
 		return c
 	def run(self):
 		pass
