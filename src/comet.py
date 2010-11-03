@@ -120,7 +120,7 @@ class CometJoyceServerRelay(JoyceRelay):
 		with self.lock:
 			self._set_timeout(int(time.time() +
 						self.hub.timeout))
-		self.handle_stream(stream)
+		self.handle_stream(self.token, stream)
 	def _handle_message(self, rh, data, direct_return):
 		with self.lock:
 			if not self.rh is None:
@@ -194,8 +194,7 @@ class CometJoyceClientRelay(JoyceRelay):
 				token), datagen, headers)
 		resp = urllib2.urlopen(request)
 		if blocking:
-			json.loads(resp.read())
-
+			resp.read()
 	def send_message(self, token, d):
 		if token != self.token:
 			raise ValueError, "%s != %s" % (token, self.token)
