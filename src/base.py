@@ -48,7 +48,7 @@ class JoyceHub(Module):
 		self.relay_to_channels = dict()
 		self.channels = dict()
 		self.on_new_channel = Event()
-	def handle_message(self, token, d, relay):
+	def _get_channel_for_relay(self, token, relay):
 		new_channel = False
 		with self.lock:
 			if not token in self.channels:
@@ -60,6 +60,9 @@ class JoyceHub(Module):
 				c = self.channels[token]
 		if new_channel:
 			self.on_new_channel(c)
+		return c
+	def handle_message(self, token, d, relay):
+		c = self._get_channel_for_relay(token, relay)
 		c.handle_message(d)
 	def broadcast_message(self, d):
 		with self.lock:
