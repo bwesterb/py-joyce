@@ -190,8 +190,8 @@ class CometJoyceClientRelay(JoyceRelay):
 		datagen, headers = poster.encode.multipart_encode({
 					'stream': stream})
 		request = urllib2.Request("http://%s:%s%s?%s" % (
-				self.host, self.port, self.path, token),
-				datagen, headers)
+				self.hub.host, self.hub.port, self.hub.path,
+				token), datagen, headers)
 		resp = urllib2.urlopen(request)
 		if blocking:
 			json.loads(resp.read())
