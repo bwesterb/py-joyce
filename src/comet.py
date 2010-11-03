@@ -255,6 +255,16 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 	def __init__(self, *args, **kwargs):
 		super(CometJoyceServer, self).__init__(*args, **kwargs)
 		self.timeout_lut = dict()
+	def _get_relay_for_token(self, token):
+		with self.lock:
+			if token is None:
+				token = self._generate_token()
+			relay = self.channel_to_relay.get(token)
+		if relay is None:
+			l = logging.getLogger("%s.relay.%s" % (
+				self.l.name, token))
+			relay = CometJoyceServerRelay(self, l, token)
+		return relay
 	def dispatch_message(self, d, rh):
 		direct_return = False
 		if d is None:
@@ -265,14 +275,7 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 		if len(d) == 0:
 			d = [None]
 			direct_return = True
-		with self.lock:
-			if d[0] is None:
-				d[0] = self._generate_token()
-			relay = self.channel_to_relay.get(d[0])
-		if relay is None:
-			l = logging.getLogger("%s.relay.%s" % (
-				self.l.name, d[0]))
-			relay = CometJoyceServerRelay(self, l, d[0])
+		relay = self._get_relay_for_token(d[0])
 		relay._handle_message(rh, d, direct_return)
 	def create_handler(self, con, addr, logger):
 		return CometRHWrapper(con, addr, self, logger)
