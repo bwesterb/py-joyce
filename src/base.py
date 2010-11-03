@@ -20,10 +20,15 @@ class JoyceChannel(object):
 		self.l = logger
 		self.token = token
 		self.on_message = Event()
+		self.on_stream = Event()
+	def send_stream(self, stream, blocking=True):
+		self.relay.send_stream(self.token, stream, blocking)
 	def send_message(self, d):
 		self.relay.send_message(self.token, d)
 	def handle_message(self, d):
 		self.on_message(self, d)
+	def handle_stream(self, stream):
+		self.on_stream(self, stream)
 	def close(self):
 		self.relay.close_channel(self.token)
 
@@ -33,8 +38,12 @@ class JoyceRelay(object):
 		self.hub = hub
 	def send_message(self, token, d):
 		raise NotImplementedError
+	def send_stream(self, token, stream, blocking=True):
+		raise NotImplementedError
 	def handle_message(self, token, d):
 		self.hub.handle_message(token, d, self)
+	def handle_stream(self, token, stream):
+		self.hub.handle_stream(token, d, self)
 	def close_channel(self, token):
 		self.hub.remove_channel(token)
 
@@ -61,6 +70,9 @@ class JoyceHub(Module):
 		if new_channel:
 			self.on_new_channel(c)
 		return c
+	def handle_stream(self, token, stream, relay):
+		c = self._get_channel_for_relay(token, relay)
+		c.handle_stream(stream)
 	def handle_message(self, token, d, relay):
 		c = self._get_channel_for_relay(token, relay)
 		c.handle_message(d)
