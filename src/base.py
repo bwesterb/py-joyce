@@ -43,7 +43,7 @@ class JoyceRelay(object):
 	def handle_message(self, token, d):
 		self.hub.handle_message(token, d, self)
 	def handle_stream(self, token, stream):
-		self.hub.handle_stream(token, d, self)
+		self.hub.handle_stream(token, stream, self)
 	def close_channel(self, token):
 		self.hub.remove_channel(token)
 
