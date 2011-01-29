@@ -165,7 +165,7 @@ class CometJoyceServerRelay(JoyceRelay):
 		try:
 			rh.send_response(200)
 			rh.end_headers()
-			json.dump([self.token] + messages, rh.wfile)
+			json.dump([self.token, messages, []], rh.wfile)
 			rh.real_finish()
 		except socket.error:
 			self.l.exception("Exception while flushing")
@@ -245,16 +245,18 @@ class CometJoyceClientRelay(JoyceRelay):
 		conn.request('POST', self.hub.path, data)
 		resp = conn.getresponse()
 		d = json.load(resp)
+		if len(d) != 3:
+			raise ValueError, "Unexpected size of reponse-list"
+		token, msgs, streams = d
 		with self.cond_out:
-			old, self.token = self.token, d[0]
+			old, self.token = self.token, token
 			if old is None:
 				self.cond_out.notify()
-		if len(d) == 1:
-			return
-		with self.cond_in:
-			for m in d[1:]:
-				self.queue_in.append(m)
-			self.cond_in.notify()
+		if msgs:
+			with self.cond_in:
+				for m in msgs:
+					self.queue_in.append(m)
+				self.cond_in.notify()
 	def stop(self):
 		self.running = False
 		with self.cond_in:
