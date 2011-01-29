@@ -99,7 +99,7 @@ class CometRH(BaseHTTPRequestHandler):
 			self._respond_simple(400, 'Malformed JSON request')
 			return
 		token, streamid = d
-		server.dispatch_stream_out(token, streamid, self)
+		self.server.dispatch_stream_out(token, streamid, self)
 	def _dispatch_message(self, v):
 		if v == '':
 			d = None
@@ -147,8 +147,8 @@ class CometJoyceServerRelay(JoyceRelay):
 			raise ValueError, "Stream can't be None"
 		with self.lock:
 			self.stream_counter += 1
-			self.streams[stream_counter] = stream
-			self.stream_notices.append(stream_counter)
+			self.streams[self.stream_counter] = stream
+			self.stream_notices.append(self.stream_counter)
 	def _set_timeout(self, timeout):
 		if not timeout == self.timeout:
 			if not self.timeout is None:
@@ -310,14 +310,14 @@ class CometJoyceClientRelay(JoyceRelay):
 					self.queue_msg_in.append(m)
 				self.cond_msg_in.notify()
 		for s in streams:
-			self.threadPool.execute_named(
+			self.hub.threadPool.execute_named(
 				self._retreive_stream,
 				'%s._retreive_stream' % self.l.name, s)
 	def _retreive_stream(self, stream_id):
 		conn = httplib.HTTPConnection(self.hub.host, self.hub.port)
 		assert not self.token is None
-		data = json.dumps([self.token, stream_id])
-		conn.request('GET', self.hub.path + '/?' + data)
+		data = urllib2.quote(json.dumps([self.token, stream_id]))
+		conn.request('GET', self.hub.path + 's?' + data)
 		resp = conn.getresponse()
 		self.handle_stream(self.token, resp)
 	def stop(self):
