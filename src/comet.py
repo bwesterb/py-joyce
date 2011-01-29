@@ -102,7 +102,11 @@ class CometJoyceServerRelay(JoyceRelay):
 		self.rh = None
 		self.timeout = None
 		self.messages = []
+		# TODO add timeouts to streams
+		self.streams = {}
+		self.stream_notices = []
 		self.token = token
+		self.stream_counter = 0
 	def send_message(self, token, data):
 		if token != self.token:
 			raise ValueError, "%s != %s" % (token, self.token)
@@ -110,6 +114,13 @@ class CometJoyceServerRelay(JoyceRelay):
 			self.messages.append(data)
 			if not self.rh is None:
 				self.__flush()
+	def send_stream(self, token, stream, blocking=True):
+		if token != self.token:
+			raise ValueError, "%s != %s" % (token, self.token)
+		with self.lock:
+			self.stream_counter += 1
+			self.streams[stream_counter] = stream
+			self.stream_notices.append(stream_counter)
 	def _set_timeout(self, timeout):
 		if not timeout == self.timeout:
 			if not self.timeout is None:
@@ -152,8 +163,10 @@ class CometJoyceServerRelay(JoyceRelay):
 		    on self.lock """
 		rh = self.rh
 		messages = list(self.messages)
+		stream_notices = list(self.stream_notices)
+		self.stream_notices = []
 		self.messages = []
-		args = (rh, messages)
+		args = (rh, messages, stream_notices)
 		if async:
 			self.hub.threadPool.execute_named(self.__inner_flush,
 				'%s __inner__flush' % self.hub.l.name, *args)
@@ -161,11 +174,12 @@ class CometJoyceServerRelay(JoyceRelay):
 			self.__inner_flush(*args)
 		self.rh = None
 		self._set_timeout(int(time.time() + self.hub.timeout))
-	def __inner_flush(self, rh, messages):
+	def __inner_flush(self, rh, messages, stream_notices):
 		try:
 			rh.send_response(200)
 			rh.end_headers()
-			json.dump([self.token, messages, []], rh.wfile)
+			json.dump([self.token, messages, stream_notices],
+					rh.wfile)
 			rh.real_finish()
 		except socket.error:
 			self.l.exception("Exception while flushing")
