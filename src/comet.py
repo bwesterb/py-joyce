@@ -156,7 +156,7 @@ class CometJoyceServerRelay(JoyceRelay):
 		args = (rh, messages)
 		if async:
 			self.hub.threadPool.execute_named(self.__inner_flush,
-				'%s __iner__flush' % self.hub.l.name, *args)
+				'%s __inner__flush' % self.hub.l.name, *args)
 		else:
 			self.__inner_flush(*args)
 		self.rh = None
