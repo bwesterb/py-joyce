@@ -17,7 +17,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler
 
 from mirte.core import Module
 from sarah.event import Event
-from sarah.io import IntSocketFile
+from sarah.io import IntSocketFile, pump
 from sarah.runtime import CallCatchingWrapper
 from sarah.socketServer import TCPSocketServer
 
@@ -51,18 +51,33 @@ class CometRH(BaseHTTPRequestHandler):
 	def log_request(self, code=None, size=None):
 		self.l.info("Request: %s %s" % (code, size))
 	def do_GET(self):
-		v = urllib2.unquote(urlparse.urlparse(self.path).query)
-		self._dispatch_message(v)
+		path = urlparse.urlparse(self.path)
+		if path.path == '/':
+			v = urllib2.unquote(path.query)
+			self._dispatch_message(v)
+		elif path.path == '/s':
+			self._dispatch_stream_out(
+					urllib2.unquote(path.query))
+		else:
+			self._respond_simple(400, 'Unknown path')
 	def do_POST(self):
-		if ('Content-Type' in self.headers and cgi.parse_header(
-				self.headers.getheader('Content-Type'))[0] ==
-					'multipart/form-data'):
-			self._dispatch_stream()
-			return
-		if not 'Content-Length' in self.headers:
-			self._respond_simple(400, "No Content-Length")
-		self._dispatch_message(self.rfile.read(
-			int(self.headers['Content-Length'])))
+		path = urlparse.urlparse(self.path)
+		if path.path == '/':
+			if ('Content-Type' in self.headers and
+					cgi.parse_header(
+					self.headers.getheader(
+					'Content-Type'))[0]
+						 == 'multipart/form-data'):
+				self._dispatch_stream()
+				return
+			if not 'Content-Length' in self.headers:
+				self._respond_simple(400, "No Content-Length")
+			self._dispatch_message(self.rfile.read(
+				int(self.headers['Content-Length'])))
+		elif path.path == '/s':
+			self._dispatch_stream_out(urllib2.unquote(path.query))
+		else:
+			self._respond_simple(400, 'Unknown path')
 	def _dispatch_stream(self):
 		fs = cgi.FieldStorage(self.rfile, self.headers,
 			environ={'REQUEST_METHOD': 'POST',
@@ -74,6 +89,17 @@ class CometRH(BaseHTTPRequestHandler):
 		stream = CallCatchingWrapper(fs['stream'].file,
 				lambda x: x == 'close', _on_stream_closed)
 		self.server.dispatch_stream(token, stream, self)
+	def _dispatch_stream_out(self, v):
+		try:
+			d = json.loads(v)
+		except ValueError:
+			self._respond_simple(400, 'Malformed JSON')
+			return
+		if len(d) != 2:
+			self._respond_simple(400, 'Malformed JSON request')
+			return
+		token, streamid = d
+		server.dispatch_stream_out(token, streamid, self)
 	def _dispatch_message(self, v):
 		if v == '':
 			d = None
@@ -117,6 +143,8 @@ class CometJoyceServerRelay(JoyceRelay):
 	def send_stream(self, token, stream, blocking=True):
 		if token != self.token:
 			raise ValueError, "%s != %s" % (token, self.token)
+		if stream is None:
+			raise ValueError, "Stream can't be None"
 		with self.lock:
 			self.stream_counter += 1
 			self.streams[stream_counter] = stream
@@ -132,6 +160,16 @@ class CometJoyceServerRelay(JoyceRelay):
 			self._set_timeout(int(time.time() +
 						self.hub.timeout))
 		self.handle_stream(self.token, stream)
+	def _handle_stream_out(self, rh, streamid):
+		with self.lock:
+			s = self.streams.get(streamid)
+		if s is None:
+			rh._respond_simple(400, "Stream not found")
+			return
+		rh.send_response(200)
+		rh.end_headers()
+		pump(s, rh.wfile)
+		rh.real_finish()
 	def _handle_message(self, rh, data, direct_return):
 		with self.lock:
 			if not self.rh is None:
@@ -191,11 +229,11 @@ class CometJoyceServerRelay(JoyceRelay):
 class CometJoyceClientRelay(JoyceRelay):
 	def __init__(self, hub, logger, token=None):
 		super(CometJoyceClientRelay, self).__init__(hub, logger)
-		self.cond_in = threading.Condition()
+		self.cond_msg_in = threading.Condition()
 		self.cond_out = threading.Condition()
 		self.running = False
 		self.token = token
-		self.queue_in = []
+		self.queue_msg_in = []
 		self.queue_out = []
 		self.nPending = 0
 	def send_stream(self, token, stream, blocking=True):
@@ -215,13 +253,13 @@ class CometJoyceClientRelay(JoyceRelay):
 		with self.cond_out:
 			self.queue_out.append(d)
 			self.cond_out.notify()
-	def run_dispatcher(self):
+	def run_message_dispatcher(self):
 		while self.running:
-			with self.cond_in:
-				while self.queue_in:
+			with self.cond_msg_in:
+				while self.queue_msg_in:
 					self.handle_message(self.token,
-							self.queue_in.pop())
-				self.cond_in.wait()
+							self.queue_msg_in.pop())
+				self.cond_msg_in.wait()
 	def run_requester(self):
 		while self.running:
 			data = None
@@ -244,8 +282,8 @@ class CometJoyceClientRelay(JoyceRelay):
 		self.running = True
 		if self.token is None:
 			self._do_request()
-		self.hub.threadPool.execute_named(self.run_dispatcher,
-				'%s.run_dispatcher' % self.l.name)
+		self.hub.threadPool.execute_named(self.run_message_dispatcher,
+				'%s.run_message_dispatcher' % self.l.name)
 		self.hub.threadPool.execute_named(self.run_requester,
 				'%s.run_requester' % self.l.name)
 		self.run_requester()
@@ -267,14 +305,25 @@ class CometJoyceClientRelay(JoyceRelay):
 			if old is None:
 				self.cond_out.notify()
 		if msgs:
-			with self.cond_in:
+			with self.cond_msg_in:
 				for m in msgs:
-					self.queue_in.append(m)
-				self.cond_in.notify()
+					self.queue_msg_in.append(m)
+				self.cond_msg_in.notify()
+		for s in streams:
+			self.threadPool.execute_named(
+				self._retreive_stream,
+				'%s._retreive_stream' % self.l.name, s)
+	def _retreive_stream(self, stream_id):
+		conn = httplib.HTTPConnection(self.hub.host, self.hub.port)
+		assert not self.token is None
+		data = json.dumps([self.token, stream_id])
+		conn.request('GET', self.hub.path + '/?' + data)
+		resp = conn.getresponse()
+		self.handle_stream(self.token, resp)
 	def stop(self):
 		self.running = False
-		with self.cond_in:
-			self.cond_in.notifyAll()
+		with self.cond_msg_in:
+			self.cond_msg_in.notifyAll()
 		with self.cond_out:
 			self.cond_out.notifyAll()
 
@@ -322,6 +371,9 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 	def dispatch_stream(self, token, stream, rh):
 		relay = self._get_relay_for_token(token)
 		relay._handle_stream(rh, stream)
+	def dispatch_stream_out(self, token, streamid, rh):
+		relay = self._get_relay_for_token(token)
+		relay._handle_stream_out(rh, streamid)
 	def dispatch_message(self, d, rh):
 		direct_return = False
 		if d is None:
