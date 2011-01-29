@@ -367,6 +367,7 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 			l = logging.getLogger("%s.relay.%s" % (
 				self.l.name, token))
 			relay = CometJoyceServerRelay(self, l, token)
+			self._get_channel_for_relay(token, relay)
 		return relay
 	def dispatch_stream(self, token, stream, rh):
 		relay = self._get_relay_for_token(token)
