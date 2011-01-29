@@ -145,10 +145,13 @@ class CometJoyceServerRelay(JoyceRelay):
 			raise ValueError, "%s != %s" % (token, self.token)
 		if stream is None:
 			raise ValueError, "Stream can't be None"
+		event = threading.Event() if blocking else None
 		with self.lock:
 			self.stream_counter += 1
-			self.streams[self.stream_counter] = stream
+			self.streams[self.stream_counter] = (stream, event)
 			self.stream_notices.append(self.stream_counter)
+		if blocking:
+			event.wait()
 	def _set_timeout(self, timeout):
 		if not timeout == self.timeout:
 			if not self.timeout is None:
@@ -162,14 +165,21 @@ class CometJoyceServerRelay(JoyceRelay):
 		self.handle_stream(self.token, stream)
 	def _handle_stream_out(self, rh, streamid):
 		with self.lock:
-			s = self.streams.get(streamid)
-		if s is None:
+			if streamid in self.streams:
+				tmp = self.streams[streamid]
+				del self.streams[streamid]
+			else:
+				tmp = None
+		if tmp is None:
 			rh._respond_simple(400, "Stream not found")
 			return
+		stream, event = tmp
 		rh.send_response(200)
 		rh.end_headers()
-		pump(s, rh.wfile)
+		pump(stream, rh.wfile)
 		rh.real_finish()
+		if not event is None:
+			event.set()
 	def _handle_message(self, rh, data, direct_return):
 		with self.lock:
 			if not self.rh is None:
