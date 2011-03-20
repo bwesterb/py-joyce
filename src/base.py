@@ -60,7 +60,7 @@ class JoyceHub(Module):
 	def _get_channel_for_relay(self, token, relay):
 		new_channel = False
 		with self.lock:
-			if not token in self.channels:
+                        if self.channels.get(token) is None:
 				c = self._create_channel(token, relay)
 				new_channel = True
 			else:
