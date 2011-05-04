@@ -42,6 +42,7 @@ class CometRHWrapper(object):
 class CometRH(BaseHTTPRequestHandler):
 	def __init__(self, request, addr, server, l):
 		self.l = l
+                self.JSONP_callback = None
 		self.server = server
 		BaseHTTPRequestHandler.__init__(self, request, addr, server)
 	def log_message(self, format, *args, **kwargs):
@@ -52,37 +53,53 @@ class CometRH(BaseHTTPRequestHandler):
 		self.l.info("Request: %s %s" % (code, size))
 	def do_GET(self):
 		path = urlparse.urlparse(self.path)
+                qs = urlparse.parse_qs(path.query)
+                if 'c' in qs and len(qs['c']) == 1:
+                        self.JSONP_callback = qs['c'][0]
 		if path.path == '/':
-			v = urllib2.unquote(path.query)
-			self._dispatch_message(v)
+                        if not 'm' in qs or len(qs['m']) != 1:
+                                return self._respond_simple(400,
+                                                'Missing argument m')
+			self._dispatch_message(qs['m'][0])
 		elif path.path == '/s':
-			self._dispatch_stream_out(
-					urllib2.unquote(path.query))
+                        if not 'm' in qs or len(qs['m']) != 1:
+                                return self._respond_simple(400,
+                                                'Missing argument m')
+			self._dispatch_stream_out(qs['m'][0])
 		else:
 			self._respond_simple(400, 'Unknown path')
 	def do_POST(self):
 		path = urlparse.urlparse(self.path)
+                qs = urlparse.parse_qs(path.query)
+                if 'c' in qs and len(qs['c']) == 1:
+                        self.JSONP_callback = qs['c']
 		if path.path == '/':
 			if ('Content-Type' in self.headers and
 					cgi.parse_header(
 					self.headers.getheader(
 					'Content-Type'))[0]
 						 == 'multipart/form-data'):
-				self._dispatch_stream()
+				self._dispatch_stream(qs)
 				return
 			if not 'Content-Length' in self.headers:
 				self._respond_simple(400, "No Content-Length")
 			self._dispatch_message(self.rfile.read(
 				int(self.headers['Content-Length'])))
 		elif path.path == '/s':
-			self._dispatch_stream_out(urllib2.unquote(path.query))
+                        if not 'm' in qs or len(qs['m']) != 1:
+                                return self._respond_simple(400,
+                                                'Missing argument m')
+			self._dispatch_stream_out(qs['m'][0])
 		else:
 			self._respond_simple(400, 'Unknown path')
-	def _dispatch_stream(self):
+	def _dispatch_stream(self, qs):
 		fs = cgi.FieldStorage(self.rfile, self.headers,
 			environ={'REQUEST_METHOD': 'POST',
 				 'CONTENT_TYPE': self.headers['Content-Type']})
-		token = urllib2.unquote(urlparse.urlparse(self.path).query)
+                if not 'm' in qs or len(qs['m']) != 1:
+                        return self._respond_simple(400,
+                                        'Missing argument m')
+		token = qs['m'][0]
 		def _on_stream_closed(name, func, args, kwargs):
 			func(*args, **kwargs)
 			self._respond_simple(200,'')
@@ -226,6 +243,8 @@ class CometJoyceServerRelay(JoyceRelay):
 		try:
 			rh.send_response(200)
 			rh.end_headers()
+                        if rh.JSONP_callback is not None:
+                                rh.wfile.write("var " + rh.JSONP_callback +'=')
 			json.dump([self.token, messages, stream_notices],
 					rh.wfile)
 			rh.real_finish()
@@ -251,7 +270,7 @@ class CometJoyceClientRelay(JoyceRelay):
 			raise ValueError, "%s != %s" (token, self.token)
 		datagen, headers = poster.encode.multipart_encode({
 					'stream': stream})
-		request = urllib2.Request("http://%s:%s%s?%s" % (
+		request = urllib2.Request("http://%s:%s%s?m=%s" % (
 				self.hub.host, self.hub.port, self.hub.path,
 				token), datagen, headers)
 		resp = urllib2.urlopen(request)
@@ -327,7 +346,7 @@ class CometJoyceClientRelay(JoyceRelay):
 		conn = httplib.HTTPConnection(self.hub.host, self.hub.port)
 		assert not self.token is None
 		data = urllib2.quote(json.dumps([self.token, stream_id]))
-		conn.request('GET', self.hub.path + 's?' + data)
+		conn.request('GET', self.hub.path + 's?m=' + data)
 		resp = conn.getresponse()
 		self.handle_stream(self.token, resp)
 	def stop(self):
