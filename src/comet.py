@@ -128,6 +128,7 @@ class CometRH(BaseHTTPRequestHandler):
 				return
 		self.server.dispatch_message(d, self)
 	def _respond_simple(self, code, message):
+                self.l.debug('_respond_simple: %s %s' % (code, repr(message)))
 		self.send_response(code)
 		self.end_headers()
 		self.wfile.write(message)
