@@ -89,13 +89,13 @@ class CometRH(BaseHTTPRequestHandler):
                 if 'c' in qs and len(qs['c']) == 1:
                         self.JSONP_callback = qs['c']
 		if path.path == '/':
-			if ('Content-Type' in self.headers and
-					cgi.parse_header(
-					self.headers.getheader(
-					'Content-Type'))[0]
-						 == 'multipart/form-data'):
-				self._dispatch_stream(qs)
-				return
+                        if 'Content-Type' in self.headers:
+                                ct = cgi.parse_header(self.headers.getheader(
+                                        'Content-Type'))[0]
+                                if ct in ['multipart/form-data',
+                                                'application/octet-stream']:
+                                        self._dispatch_stream(qs, ct)
+                                        return
 			if not 'Content-Length' in self.headers:
 				self._respond_simple(400, "No Content-Length")
 			self._dispatch_message(self.rfile.read(
@@ -107,18 +107,22 @@ class CometRH(BaseHTTPRequestHandler):
 			self._dispatch_stream_out(qs['m'][0])
 		else:
 			self._respond_simple(400, 'Unknown path')
-	def _dispatch_stream(self, qs):
-		fs = cgi.FieldStorage(self.rfile, self.headers,
-			environ={'REQUEST_METHOD': 'POST',
-				 'CONTENT_TYPE': self.headers['Content-Type']})
+	def _dispatch_stream(self, qs, content_type):
                 if not 'm' in qs or len(qs['m']) != 1:
                         return self._respond_simple(400,
                                         'Missing argument m')
 		token = qs['m'][0]
+                if content_type == 'multipart/form-data':
+                        fs = cgi.FieldStorage(self.rfile, self.headers,
+                                environ={'REQUEST_METHOD': 'POST',
+                                         'CONTENT_TYPE': self.headers['Content-Type']})
+                        stream = fs['stream'].file
+                else:
+                        stream = self.rfile
 		def _on_stream_closed(name, func, args, kwargs):
 			func(*args, **kwargs)
 			self._respond_simple(200,'')
-		stream = CallCatchingWrapper(fs['stream'].file,
+		stream = CallCatchingWrapper(stream,
 				lambda x: x == 'close', _on_stream_closed)
 		self.server.dispatch_stream(token, stream, self)
 	def _dispatch_stream_out(self, v):
