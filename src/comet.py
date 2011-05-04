@@ -51,6 +51,21 @@ class CometRH(BaseHTTPRequestHandler):
 		self.l.error(format, *args, **kwargs)
 	def log_request(self, code=None, size=None):
 		self.l.info("Request: %s %s" % (code, size))
+        def do_OPTIONS(self):
+                self.l.debug('OPTIONS')
+		self.send_response(200)
+                self.send_header('Access-Control-Max-Age', '1728000')
+                self.send_header('Access-Control-Allow-Methods',
+                                'POST, GET, OPTIONS')
+                if 'Origin' in self.headers:
+                        self.send_header('Access-Control-Allow-Origin',
+                                self.headers.getheader('Origin'))
+                if 'Access-Control-Request-Headers' in self.headers:
+                        self.send_header('Access-Control-Allow-Headers',
+                                self.headers.getheader(
+                                        'Access-Control-Request-Headers'))
+		self.end_headers()
+		self.real_finish()
 	def do_GET(self):
 		path = urlparse.urlparse(self.path)
                 qs = urlparse.parse_qs(path.query)
