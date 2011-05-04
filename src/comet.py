@@ -17,7 +17,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler
 
 from mirte.core import Module
 from sarah.event import Event
-from sarah.io import IntSocketFile, pump
+from sarah.io import IntSocketFile, pump, CappedReadFile
 from sarah.runtime import CallCatchingWrapper
 from sarah.socketServer import TCPSocketServer
 
@@ -111,14 +111,18 @@ class CometRH(BaseHTTPRequestHandler):
                 if not 'm' in qs or len(qs['m']) != 1:
                         return self._respond_simple(400,
                                         'Missing argument m')
+                if not 'Content-Length' in self.headers:
+                        self._respond_simple(400, 'No Content-Length')
+                        return
 		token = qs['m'][0]
+                length = int(self.headers['Content-Length'])
                 if content_type == 'multipart/form-data':
                         fs = cgi.FieldStorage(self.rfile, self.headers,
                                 environ={'REQUEST_METHOD': 'POST',
                                          'CONTENT_TYPE': self.headers['Content-Type']})
                         stream = fs['stream'].file
                 else:
-                        stream = self.rfile
+                        stream = CappedReadFile(self.rfile, length)
 		def _on_stream_closed(name, func, args, kwargs):
 			func(*args, **kwargs)
 			self._respond_simple(200,'')
