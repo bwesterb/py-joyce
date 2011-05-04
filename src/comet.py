@@ -243,6 +243,9 @@ class CometJoyceServerRelay(JoyceRelay):
 	def __inner_flush(self, rh, messages, stream_notices):
 		try:
 			rh.send_response(200)
+                        rh.send_header('Content-Type', 'text/javascript'
+                                        if rh.JSONP_callback is not None
+                                        else 'application/json')
 			rh.end_headers()
                         if rh.JSONP_callback is not None:
                                 rh.wfile.write(rh.JSONP_callback + '(')
