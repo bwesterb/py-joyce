@@ -245,9 +245,11 @@ class CometJoyceServerRelay(JoyceRelay):
 			rh.send_response(200)
 			rh.end_headers()
                         if rh.JSONP_callback is not None:
-                                rh.wfile.write("var " + rh.JSONP_callback +'=')
+                                rh.wfile.write(rh.JSONP_callback + '(')
 			json.dump([self.token, messages, stream_notices],
 					rh.wfile)
+                        if rh.JSONP_callback is not None:
+                                rh.wfile.write(');')
 			rh.real_finish()
 		except socket.error:
 			self.l.exception("Exception while flushing")
