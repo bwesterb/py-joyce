@@ -420,6 +420,7 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 	def __init__(self, *args, **kwargs):
 		super(CometJoyceServer, self).__init__(*args, **kwargs)
 		self.timeout_lut = dict()
+                self.sleepEvent = threading.Event()
 	def _get_relay_for_token(self, token):
 		with self.lock:
 			if token is None:
@@ -470,8 +471,15 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 				ds = self.timeout_lut.items()
 			tmp = sorted([x[0] for x in ds if x[1]])
 			timeout = tmp[0] - time.time() if tmp else self.timeout
-			if timeout > 0:
+			if timeout <= 0:
+                                pass
+                        elif timeout < 0.1:
 				time.sleep(timeout)
+                        else: # 0.1 < timeout
+                                self.sleepEvent.clear()
+                                self.scheduler.plan(time.time() + timeout,
+                                                self.sleepEvent.set)
+                                self.sleepEvent.wait()
 			with self.lock:
 				if not self.running:
 					break
@@ -486,6 +494,7 @@ class CometJoyceServer(TCPSocketServer, JoyceServer):
 					s.on_timeout(t)
 	def stop(self):
 		super(CometJoyceServer, self).stop()
+                self.sleepEvent.set()
 		with self.lock:
 			ds = self.timeout_lut.values()
 		for ss in ds:

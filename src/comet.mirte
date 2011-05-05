@@ -1,5 +1,6 @@
 includes:
  - sarah/socketServer
+ - sarah/scheduler
  - joyce
 definitions:
   cometJoyceServer:
@@ -8,7 +9,8 @@ definitions:
     settings:
       threadPool: {type: threadPool}
       port: {default: 8080}
-      timeout: {type: float, default: 2}
+      timeout: {type: float, default: 20}
+      scheduler: {type: scheduler}
   cometJoyceClient:
     implementedBy: joyce.comet.CometJoyceClient
     run: true
