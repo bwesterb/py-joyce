@@ -31,6 +31,8 @@ class JoyceChannel(object):
 		self.on_stream(self, stream)
 	def close(self):
 		self.relay.close_channel(self.token)
+        def closed(self):
+                pass
 
 class JoyceRelay(object):
 	def __init__(self, hub, logger):
@@ -103,10 +105,12 @@ class JoyceHub(Module):
 				return _try
 	def remove_channel(self, token):
 		with self.lock:
+                        c = self.channels[token]
 			del self.channels[token]
 			relay = self.channel_to_relay[token]
 			self.relay_to_channels[relay].remove(token)
 			del self.channel_to_relay[token]
+                c.closed()
 	def remove_relay(self, relay):
 		with self.lock:
 			cs = self.relay_to_channels[relay]
