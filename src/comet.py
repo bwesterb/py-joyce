@@ -124,7 +124,6 @@ class CometRH(BaseHTTPRequestHandler):
                 else:
                         stream = CappedReadFile(self.rfile, length)
 		def _on_stream_closed(name, func, args, kwargs):
-			func(*args, **kwargs)
 			self._respond_simple(200,'')
 		stream = CallCatchingWrapper(stream,
 				lambda x: x == 'close', _on_stream_closed)
