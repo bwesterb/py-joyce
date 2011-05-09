@@ -124,7 +124,16 @@ class CometRH(BaseHTTPRequestHandler):
                 else:
                         stream = CappedReadFile(self.rfile, length)
 		def _on_stream_closed(name, func, args, kwargs):
-			self._respond_simple(200,'')
+                        self.send_response(200)
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        if 'r' in qs and qs['r'][0] == 'fu':
+                                self.send_header('Content-Type', 'text/html')
+                                self.end_headers()
+                                self.wfile.write('{"success":true}')
+                        else:
+                                self.end_headers()
+                                self.real_finish()
+                        self.real_finish()
 		stream = CallCatchingWrapper(stream,
 				lambda x: x == 'close', _on_stream_closed)
 		self.server.dispatch_stream(token, stream, self)
