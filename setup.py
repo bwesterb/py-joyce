@@ -12,7 +12,7 @@ setup(name='joyce',
       packages=['joyce'],
       package_dir={'joyce': 'src'},
       install_requires = ['docutils>=0.3',
-			  'sarah>=0.1.0a1',
+			  'sarah>=0.1.0a2',
 			  'poster>=0.7.0',
 			  'pymongo>=1.8.1',]
       )
