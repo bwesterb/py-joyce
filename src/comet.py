@@ -277,6 +277,7 @@ class CometJoyceServerRelay(JoyceRelay):
                         rh.send_header('Content-Type', 'text/javascript'
                                         if rh.JSONP_callback is not None
                                         else 'application/json')
+                        rh.send_header('Access-Control-Allow-Origin','*')
                         rh.end_headers()
                         if rh.JSONP_callback is not None:
                                 rh.wfile.write(rh.JSONP_callback + '(')
