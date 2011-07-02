@@ -96,6 +96,16 @@ class CometRH(BaseHTTPRequestHandler):
                                                 'application/octet-stream']:
                                         self._dispatch_stream(qs, ct)
                                         return
+                                if ct != 'application/x-www-form-urlencoded':
+                                        return self._respond_simple(400,
+                                                'Unsupported Content-Type')
+                                d = urlparse.parse_qs(self.rfile.read(
+                                        int(self.headers['Content-Length'])))
+                                if not 'm' in d or len(d['m']) != 1:
+                                        return self._respond_simple(400,
+                                                        'Missing arg m')
+                                self._dispatch_message(d['m'][0])
+                                return
                         if not 'Content-Length' in self.headers:
                                 self._respond_simple(400, "No Content-Length")
                         self._dispatch_message(self.rfile.read(
