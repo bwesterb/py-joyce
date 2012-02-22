@@ -12,7 +12,7 @@ setup(name='joyce',
       packages=['joyce'],
       package_dir={'joyce': 'src'},
       install_requires = ['docutils>=0.3',
-                          'sarah>=0.1.0a2',
-                          'mirte>=0.1.0a2',
+                          'sarah>=0.1.1',
+                          'mirte>=0.1.1',
                           'poster>=0.7.0']
       )
