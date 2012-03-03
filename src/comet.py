@@ -375,9 +375,17 @@ class CometJoyceClientRelay(JoyceRelay):
                 else:
                         data.append(self.token)
                 data = json.dumps(list(reversed(data)))
-                conn.request('POST', self.hub.path, data)
-                resp = conn.getresponse()
-                d = json.load(resp)
+                try:
+                        conn.request('POST', self.hub.path, data)
+                        resp = conn.getresponse()
+                        d = json.load(resp)
+                except (httplib.HTTPException, IOError), e:
+                        self.l.exception("exception")
+                        if self.hub.keepTrying:
+                                # TODO retransmit lost data
+                                time.sleep(1)
+                                return
+                        raise e
                 if len(d) != 3:
                         raise ValueError, "Unexpected size of reponse-list"
                 token, msgs, streams = d

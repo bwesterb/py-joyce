@@ -27,6 +27,6 @@ setup(name='joyce',
       package_data={'joyce': find_package_data()},
       install_requires = ['docutils>=0.3',
                           'sarah>=0.1.2',
-                          'mirte>=0.1.2',
+                          'mirte>=0.1.3',
                           'poster>=0.7.0']
       )

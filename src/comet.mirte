@@ -19,3 +19,5 @@ definitions:
       host: {type: str}
       path: {type: str, default: "/"}
       port: {type: int, default: 8080}
+      # When set to true, the client will retry when a connection fails.
+      keepTrying: {type: bool, default: false}
