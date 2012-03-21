@@ -27,15 +27,19 @@ class CometRHWrapper(object):
         """ Exposes SocketServer handler semantics for our
             BaseHTTPRequestHandler based CometRH """
         def __init__(self, request, addr, server, l):
-                self.request = IntSocketFile(request)
                 self.addr = addr
                 self.server = server
                 self.l = l
+                if self.server.useIntSocketFile:
+                        self.request = IntSocketFile(request)
+                else:
+                        self.request = request
         def handle(self):
                 self.h = CometRH(self.request, self.addr,
                                         self.server, self.l)
         def interrupt(self):
-                self.request.interrupt()
+                if hasattr(self.request, 'interrupt'):
+                        self.request.interrupt()
         def cleanup(self):
                 pass
 

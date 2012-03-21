@@ -11,6 +11,8 @@ definitions:
       port: {default: 8080}
       timeout: {type: float, default: 20}
       scheduler: {type: scheduler}
+      # When set to true, will use *slow* interruptible socket filewrapper.
+      useIntSocketFile: {type: bool, default: false}
   cometJoyceClient:
     implementedBy: joyce.comet.CometJoyceClient
     run: true
