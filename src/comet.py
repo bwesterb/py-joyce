@@ -292,9 +292,12 @@ class CometJoyceServerRelay(JoyceRelay):
                         if rh.JSONP_callback is not None:
                                 rh.wfile.write(rh.JSONP_callback + '(')
                         try:
-                                json.dump([self.token, messages,
-                                                stream_notices],
-                                                rh.wfile)
+                                # Assuming the messages are small and lots of
+                                # small writes are expensive, we use json.dumps
+                                # instead of json.dump.
+                                rh.wfile.write(json.dumps([self.token,
+                                                           messages,
+                                                           stream_notices]))
                         except TypeError:
                                 self.l.exception("Unserializable message?")
                         if rh.JSONP_callback is not None:
