@@ -82,6 +82,8 @@ class JoyceHub(Module):
                 with self.lock:
                         channels = self.channels.values()
                 for channel in channels:
+                        if channel is None:
+                                continue
                         channel.send_message(d)
         
         def _create_channel(self, token, relay, channel_class=None):
