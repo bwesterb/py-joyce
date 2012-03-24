@@ -30,3 +30,5 @@ setup(name='joyce',
                           'mirte>=0.1.3',
                           'poster>=0.7.0']
       )
+
+# vim: et:sta:bs=2:sw=4:
