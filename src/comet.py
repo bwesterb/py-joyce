@@ -380,8 +380,8 @@ class CometJoyceClientRelay(JoyceRelay):
         if data is None and not self.token is None:
             data = [self.token]
         else:
-            data.append(self.token)
-        data = json.dumps(list(reversed(data)))
+            data.insert(0, self.token)
+        data = json.dumps(data)
         try:
             conn.request('POST', self.hub.path, data)
             resp = conn.getresponse()
