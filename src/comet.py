@@ -75,12 +75,14 @@ class CometRH(BaseHTTPRequestHandler):
         qs = urlparse.parse_qs(path.query)
         if 'c' in qs and len(qs['c']) == 1:
             self.JSONP_callback = qs['c'][0]
-        if path.path == '/':
+        expected_path = (self.server.path if self.server.path.endswith('/')
+                            else self.server.path + '/')
+        if path.path in (expected_path, expected_path[:-1]):
             if not 'm' in qs or len(qs['m']) != 1:
                 return self._respond_simple(400,
                         'Missing argument m')
             self._dispatch_message(qs['m'][0])
-        elif path.path == '/s':
+        elif path.path == (expected_path + 's', expected_path + 's/'):
             if not 'm' in qs or len(qs['m']) != 1:
                 return self._respond_simple(400,
                         'Missing argument m')
@@ -91,8 +93,10 @@ class CometRH(BaseHTTPRequestHandler):
         path = urlparse.urlparse(self.path)
         qs = urlparse.parse_qs(path.query)
         if 'c' in qs and len(qs['c']) == 1:
-            self.JSONP_callback = qs['c']
-        if path.path == '/':
+            self.JSONP_callback = qs['c'][0]
+        expected_path = (self.server.path if self.server.path.endswith('/')
+                            else self.server.path + '/')
+        if path.path in (expected_path, expected_path[:-1]):
             if 'Content-Type' in self.headers:
                 ct = cgi.parse_header(self.headers.getheader(
                     'Content-Type'))[0]
@@ -114,7 +118,7 @@ class CometRH(BaseHTTPRequestHandler):
                 self._respond_simple(400, "No Content-Length")
             self._dispatch_message(self.rfile.read(
                 int(self.headers['Content-Length'])))
-        elif path.path == '/s':
+        elif path.path in (expected_path + 's', expected_path + 's/'):
             if not 'm' in qs or len(qs['m']) != 1:
                 return self._respond_simple(400,
                         'Missing argument m')
