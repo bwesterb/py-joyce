@@ -150,7 +150,6 @@ class CometRH(BaseHTTPRequestHandler):
                 self.wfile.write('{"success":true}')
             else:
                 self.end_headers()
-                self.real_finish()
             self.real_finish()
         stream = CallCatchingWrapper(stream,
                 lambda x: x == 'close', _on_stream_closed)
