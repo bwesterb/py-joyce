@@ -8,6 +8,7 @@ definitions:
     inherits: [ tcpSocketServer ]
     settings:
       threadPool: {type: threadPool}
+      path: {type: str, default: "/"}
       port: {default: 8080}
       timeout: {type: float, default: 20}
       scheduler: {type: scheduler}
