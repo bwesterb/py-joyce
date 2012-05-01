@@ -5,7 +5,7 @@ includes:
 definitions:
   cometJoyceServer:
     implementedBy: joyce.comet.CometJoyceServer
-    inherits: [ tcpSocketServer ]
+    inherits: [ tcpSocketServer, joyceServer ]
     settings:
       threadPool: {type: threadPool}
       path: {type: str, default: "/"}
@@ -16,6 +16,7 @@ definitions:
       useIntSocketFile: {type: bool, default: false}
   cometJoyceClient:
     implementedBy: joyce.comet.CometJoyceClient
+    inherits: [ joyceClient ]
     run: true
     settings:
       threadPool: {type: threadPool}
