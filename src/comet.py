@@ -182,7 +182,13 @@ class CometRH(BaseHTTPRequestHandler):
         self.wfile.write(message)
         self.real_finish()
     def real_finish(self):
-        BaseHTTPRequestHandler.finish(self)
+        # We used to call
+        #   BaseHTTPRequestHandler.finish(self)
+        # But for some reason `finish' does not shut the socket down in
+        # a timely fashion.  Thus we will do this manually.
+        self.wfile.flush()
+        self.connection.shutdown(socket.SHUT_RDWR)
+        self.connection.close()
     def finish(self):
         # We don't want our parent to close our wfile and rfile.
         pass
