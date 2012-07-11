@@ -416,9 +416,9 @@ class CometJoyceClientRelay(JoyceRelay):
                 self.cond_msg_in.notify()
         for s in streams:
             self.hub.threadPool.execute_named(
-                self._retreive_stream,
-                '%s._retreive_stream' % self.l.name, s)
-    def _retreive_stream(self, stream_id):
+                self._retrieve_stream,
+                '%s._retrieve_stream' % self.l.name, s)
+    def _retrieve_stream(self, stream_id):
         conn = httplib.HTTPConnection(self.hub.host, self.hub.port)
         assert not self.token is None
         data = urllib2.quote(json.dumps([self.token, stream_id]))
